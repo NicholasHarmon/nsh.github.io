@@ -1,0 +1,139 @@
+ <html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+	  html { height: 100% }
+	  body { height: 100%; margin: 0; padding: 0 }
+	  #map-canvas { height: 100% }
+	</style>
+	<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBMpB9cBLChOVSCTOkn0v3W5VDAWoeLEbk"></script>
+	<script type="text/javascript" src="http://api.geonames.org/export/jsr_class.js"></script>
+	<script type="text/javascript">
+  	  var geocoder;
+  	  var map;
+  	  var aObj;
+  	  var markers = [];
+  	  
+  	  function initialize() {
+    	geocoder = new google.maps.Geocoder();
+    	
+    	var latlng = new google.maps.LatLng(-34.397, 150.644);
+    	var mapOptions = {
+      	  zoom: 8,
+      	  center: latlng
+    	}
+    	map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions);
+  	  }
+  	  
+	  function getEarthquakes(data) {
+  		console.log(data);
+        var infowindow = new google.maps.InfoWindow();
+  		
+  		for(var i = 0; i < data.earthquakes.length; i++) {
+    	  var coord = new google.maps.LatLng(data.earthquakes[i].lat, data.earthquakes[i].lng);
+    	  var date = new Date(data.earthquakes[i].datetime);
+          var marker = new google.maps.Marker({
+            map: map,
+            position: coord,
+            title: (i + 1) + ". Earthquake magnitude: " + data.earthquakes[i].magnitude + "<br />   Depth: " + data.earthquakes[i].depth + "<br />   Date: " + date.toUTCString()
+          });
+      	  google.maps.event.addListener(marker, 'click', function() {
+        	infowindow.setContent(this.title);
+        	infowindow.open(map, this);
+          });
+          markers.push(marker);
+        }
+	  }
+	  
+  	  function codeAddress() {
+    	var address = document.getElementById("address").value;
+    	geocoder.geocode( { 'address': address}, function(results, status) {
+      	  if (status == google.maps.GeocoderStatus.OK) {
+      	    clearMarkers();
+        	map.setCenter(results[0].geometry.location);
+        	map.setZoom(8);
+    	    if(results[0].geometry.hasOwnProperty('bounds')) {
+      	      var request = 'http://api.geonames.org/earthquakesJSON?north=' + results[0].geometry.bounds.xa.j
+      	    												     + '&south=' + results[0].geometry.bounds.xa.k 
+      	    												     + '&east='  + results[0].geometry.bounds.pa.k
+      	    												     + '&west='  + results[0].geometry.bounds.pa.j
+      	    												     + '&callback=getEarthquakes&username=nick17';
+      	    }
+      	    else {
+      	      var north = results[0].geometry.location.k + 0.5;
+      	      var south = results[0].geometry.location.k - 0.5;
+      	      var east  = results[0].geometry.location.B + 0.5;
+      	      var west  = results[0].geometry.location.B - 0.5;
+      	      var request = 'http://api.geonames.org/earthquakesJSON?north=' + north
+      	    												     + '&south=' + south
+      	    												     + '&east='  + east
+      	    												     + '&west='  + west
+      	    												     + '&callback=getEarthquakes&username=nick17';
+      	    }
+      	    
+  		    // Create a new script object
+  			aObj = new JSONscriptRequest(request);
+  			// Build the script tag
+  			aObj.buildScriptTag();
+  			// Execute (add) the script tag
+  			aObj.addScriptTag();
+		  } else {
+        	alert("Geocode was not successful for the following reason: " + status);
+      	  }
+    	});
+  	  }
+  	  
+  	  //Found on stack overflow for getting YYYY-MM-DD format
+  	  Date.prototype.yyyymmdd = function() {                          
+        var yyyy = (this.getFullYear()-1).toString();                                    
+        var mm = (this.getMonth()+1).toString(); // getMonth() is zero-based         
+        var dd  = this.getDate().toString();             
+                            
+        return yyyy + '-' + (mm[1]?mm:"0"+mm[0]) + '-' + (dd[1]?dd:"0"+dd[0]);
+   	  }  
+   	  
+   	  function topTenEarthquakes() {
+   	    var address = document.getElementById("address").value;
+    	geocoder.geocode( { 'address': address}, function(results, status) {
+      	  if (status == google.maps.GeocoderStatus.OK) {
+      	    clearMarkers();
+        	map.setCenter(new google.maps.LatLng(0, 0));
+        	map.setZoom(2);
+			var d = new Date();
+				
+    	    var request = 'http://api.geonames.org/earthquakesJSON?north=90&south=-90&east=180&west=-180&date=' + d.yyyymmdd() + '&callback=getEarthquakes&username=nick17';
+    	    
+    	    // Create a new script object
+  			aObj = new JSONscriptRequest(request);
+  			// Build the script tag
+  			aObj.buildScriptTag();
+  			// Execute (add) the script tag
+  			aObj.addScriptTag();
+		  } else {
+        	alert("Geocode was not successful for the following reason: " + status);
+      	  }
+    	});
+   	  }
+   	  
+   	  // Sets the map on all markers in the array.
+	  function setAllMap(map) {
+  		for (var i = 0; i < markers.length; i++) {
+    	  markers[i].setMap(map);
+  		}
+	  }
+
+	  // Removes the markers from the map, but keeps them in the array.
+	  function clearMarkers() {
+  		setAllMap(null);
+	  }
+	</script>
+  </head>
+  <body onload="initialize()">
+    <div align="center">
+      <input id="address" type="textbox" value="Sydney, NSW">
+      <input type="button" value="Search" onclick="codeAddress()">
+      <input id="topTen" type="button" value="Top 10 largest earthquakes within past year" onclick="topTenEarthquakes()">
+    </div>
+    <div id="map-canvas"/>
+  </body>
+</html>
